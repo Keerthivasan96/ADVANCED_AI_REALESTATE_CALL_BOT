@@ -1,0 +1,25 @@
+# Web
+fastapi
+uvicorn[standard]
+twilio
+python-multipart
+python-dotenv
+
+# LangChain + AI
+langchain
+langchain-community
+langchain-google-genai
+google-generativeai
+google-cloud-texttospeech
+
+# Vector DB (optional, safe to keep)
+chromadb
+faiss-cpu
+
+# Docs / parsing (optional)
+PyPDF2
+pypdf
+
+# Speech (optional – not used in Twilio mode but won’t hurt)
+SpeechRecognition
+pyttsx3
