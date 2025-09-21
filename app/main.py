@@ -58,6 +58,10 @@ rag = RealEstateRAG()
 logger.info("Loaded RealEstateRAG index.")
 # Pre-warm Gemini usage if needed in your voice code (it's done inside your classes)
 
+FALLBACK_REPLY = (
+    "I'm still pulling up the latest details. Could you share a bit more while I check?"
+)
+
 # ---------- Helper functions ----------
 async def get_session(call_sid: str):
     """Return session dict with 'bot' and 'start_time' keys."""
@@ -208,16 +212,34 @@ async def process(CallSid: str = Form(...), SpeechResult: str = Form(None), Conf
         loop = asyncio.get_running_loop()
         # Run blocking functions in executor if they are CPU-bound or sync
         main_future = loop.run_in_executor(None, bot.generate_fast_response, user_input, intent)
-        rag_future = loop.run_in_executor(None, lambda: rag.query_knowledge_base(user_input, k=1))
+        rag_future = loop.run_in_executor(
+            None, lambda: rag.query_knowledge_base(user_input, k=1)
+        )
 
-        main_response = await asyncio.wait_for(main_future, timeout=4.0)
-        rag_context = await asyncio.wait_for(rag_future, timeout=2.0)
+        main_response = None
+        rag_context = None
+
+        try:
+            main_response = await asyncio.wait_for(main_future, timeout=4.0)
+        except asyncio.TimeoutError:
+            logger.warning("Timeout generating fast response for %s", CallSid)
+            main_future.cancel()
+
+        try:
+            rag_context = await asyncio.wait_for(rag_future, timeout=2.0)
+        except asyncio.TimeoutError:
+            logger.warning("Timeout retrieving RAG context for %s", CallSid)
+            rag_future.cancel()
 
         # Combine intelligently (similar to your original)
-        if rag_context and len(rag_context) > 0:
-            reply = f"{main_response} {rag_context}"
+        if main_response:
+            if rag_context and len(rag_context) > 0:
+                reply = f"{main_response} {rag_context}"
+            else:
+                reply = main_response
         else:
-            reply = main_response
+            reply = FALLBACK_REPLY
+            logger.info("Using fallback reply for %s after timeout", CallSid)
 
         if len(reply) > 300:
             reply = reply[:297] + "."
