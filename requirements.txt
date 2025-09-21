@@ -23,3 +23,6 @@ pypdf
 # Speech (optional – not used in Twilio mode but won’t hurt)
 SpeechRecognition
 pyttsx3
+
+# Testing
+pytest
